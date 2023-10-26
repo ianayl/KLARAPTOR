@@ -1,40 +1,72 @@
 #!/bin/bash
 
-cwd="$(pwd)"
-cd ..;
-parent_cwd="$(pwd)"
-cd "$cwd"
-dest="klaraptor_path.conf"
-dest="$cwd/$dest"
-target="$HOME/.bashrc"
+usage () {
+    >&2 echo "Usage: $0 [options]
 
-cat /dev/null > $dest
-printf "export KLARAPTOR_PATH=$parent_cwd\n" >> $dest
-printf "export PATH=\$PATH:\$KLARAPTOR_PATH/bin/" >> $dest
+  -h, --help     Prints this help message
+  -p             Adds KLARAPTOR to path via .profile
+  -z             Adds KLARAPTOR to path via .zshrc
+  no arguments:  Adds KLARAPTOR to path via .bashrc
 
-printf "[adding KLARAPTOR_PATH to ~/.bashrc] ... \n"
+Note: The KLARAPTOR config is created in \$PWD!
+      The parent of \$PWD is also treated as KLARAPTOR's root directory!"
+    exit
+}
 
-source_line="    source $dest "
-if grep -Fxq "$source_line" $target 
-then
-        # printf "Path is already set! \n"
-        printf ""
-else
+# Filename constants
+KLARAPTOR_CONFIG_FILENAME="klaraptor_path.conf"
+BASHRC_PATH="$HOME/.bashrc"
+PROFILE_PATH="$HOME/.profile"
+ZSHRC_PATH="$HOME/.zshrc"
 
-	printf "\n\n" >> $target
-	printf "######################################\n" >> $target
-	printf "######################################\n" >> $target 
-	printf "#### ADDING KLARAPTOR_PATH [""$(date)""]\n" >> $target
-	printf "###################################### \n" >> $target
+klaraptor_root="$(dirname $PWD)"
+klaraptor_config_path="$PWD/$KLARAPTOR_CONFIG_FILENAME"
 
-	printf "if [ -e $dest ]; then \n" >> $target
-#	printf "    source $dest \n" >> $target
-	printf "$source_line" >> $target
-	printf "\n" >> $target
-	printf "fi;\n">> $target
+# Creates a KLARAPTOR config if it doesn't already exist
+ensure_config_exists() {
+    if [ -e "$klaraptor_config_path" ]
+    then
+        echo "[KLARAPTOR configuration already exists at $klaraptor_config_path: skipping new configuration] ..."
+        return 1
+    fi
+    # Construct a new klaraptor config
+    echo "[Generating new KLARAPTOR configuration at $klaraptor_config_path] ..."
+    printf "export KLARAPTOR_PATH=$klaraptor_root\n" > $klaraptor_config_path
+    printf "export PATH=\$PATH:\$KLARAPTOR_PATH/bin/" >> $klaraptor_config_path
+}
 
-	printf "######################################\n" >> $target
-	printf "######################################\n" >> $target
-fi
+# Source the KLARAPTOR config in file $1
+add_klaraptor_path() {
+    printf "[Adding KLARAPTOR_PATH to $1] ... \n"
 
-printf "[Installation of KLARAPTOR is done]...\n"
+    source_line=". $klaraptor_config_path"
+    if grep -Fxq "$source_line" $1 
+    then
+            # printf "Path is already set! \n"
+            printf ""
+    else
+        printf "\n\n" >> $1
+        printf "######################################\n" >> $1
+        printf "######################################\n" >> $1 
+        printf "#### ADDING KLARAPTOR_PATH [""$(date)""]\n" >> $1
+        printf "###################################### \n" >> $1
+
+        printf "if [ -e $klaraptor_config_path ]; then \n" >> $1
+    #	printf "    source $dest \n" >> $target
+        printf "    $source_line\n" >> $1
+        printf "fi;\n">> $1
+
+        printf "######################################\n" >> $1
+        printf "######################################\n" >> $1
+    fi
+
+    printf "[Installation of KLARAPTOR is done] ...\n"
+}
+
+
+case $1 in
+    -p) ensure_config_exists; add_klaraptor_path "$PROFILE_PATH" ;;
+    -z) ensure_config_exists; add_klaraptor_path "$ZSHRC_PATH" ;;
+    "") ensure_config_exists; add_klaraptor_path "$BASHRC_PATH" ;;
+    *) usage ;;
+esac
